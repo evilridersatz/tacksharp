@@ -31,6 +31,36 @@ export class FollowUpsController {
     return this.followUpsService.create(body);
   }
 
+  @Post('test/:leadId')
+  async createTestFollowUp(
+    @Param('leadId') leadId: string,
+    @Body() body: {
+      customerId: string;
+      delaySeconds?: number;
+      message?: string;
+    },
+  ) {
+    const organizationId =
+      process.env.DEFAULT_ORGANIZATION_ID ??
+      'org_real_estate_001';
+
+    const delaySeconds = body.delaySeconds ?? 10;
+
+    return this.followUpsService.create({
+      organizationId,
+      leadId,
+      customerId: body.customerId,
+      channel: 'whatsapp',
+      action: 'message',
+      message:
+        body.message ??
+        'Hi! Just following up on your property enquiry. Are you still looking for a property?',
+      scheduledAt: new Date(
+        Date.now() + delaySeconds * 1000,
+      ).toISOString(),
+    });
+  }
+
   @Get()
   async findAll() {
     const organizationId =

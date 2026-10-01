@@ -20,82 +20,6 @@ const connection = new Redis({
   maxRetriesPerRequest: null,
 });
 
-async function sendWhatsAppMessage(
-  to: string,
-  message: string,
-  phoneNumberId: string,
-) {
-  const accessToken =
-    process.env.WHATSAPP_ACCESS_TOKEN;
-
-  const apiVersion =
-    process.env.WHATSAPP_API_VERSION ?? 'v23.0';
-
-  if (!accessToken) {
-    throw new Error(
-      'WHATSAPP_ACCESS_TOKEN is missing',
-    );
-  }
-
-  if (!phoneNumberId) {
-    throw new Error(
-      'WHATSAPP_PHONE_NUMBER_ID is missing',
-    );
-  }
-
-  const url =
-    `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
-
-  const response =
-    await fetch(url, {
-      method: 'POST',
-
-      headers: {
-        Authorization:
-          `Bearer ${accessToken}`,
-
-        'Content-Type':
-          'application/json',
-      },
-
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-
-        recipient_type: 'individual',
-
-        to,
-
-        type: 'text',
-
-        text: {
-          preview_url: false,
-          body: message,
-        },
-      }),
-    });
-
-  const data =
-    await response.json();
-
-  if (!response.ok) {
-    console.error(
-      'WHATSAPP SEND FAILED:',
-      data,
-    );
-
-    throw new Error(
-      `WhatsApp API error: ${response.status}`,
-    );
-  }
-
-  console.log(
-    'WHATSAPP MESSAGE SENT:',
-    data,
-  );
-
-  return data;
-}
-
 async function bootstrap() {
   const app =
     await NestFactory.createApplicationContext(
@@ -174,16 +98,6 @@ async function bootstrap() {
           result.conversationId,
         );
         console.log('----------------------------------------');
-
-        await sendWhatsAppMessage(
-          job.data.from,
-          result.response,
-          job.data.phoneNumberId,
-        );
-
-        console.log(
-          'WHATSAPP AI RESPONSE SENT TO CUSTOMER',
-        );
 
         console.log(
           'WHATSAPP AI PROCESSING COMPLETED',

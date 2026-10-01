@@ -18,6 +18,57 @@ export interface CreateFollowUpInput {
 
 @Injectable()
 export class FollowUpsService {
+
+  async scheduleLeadFollowUps(params: {
+    organizationId: string;
+    leadId: string;
+    customerId: string;
+    customerName?: string | null;
+  }) {
+    const name = params.customerName ?? 'there';
+
+    const base = Date.now();
+
+    const sequence = [
+      {
+        seconds: 30 * 60,
+        message:
+          `Hi ${name}! Just following up on your property enquiry. Are you still looking for a property? I can help you find suitable options.`,
+      },
+      {
+        seconds: 4 * 60 * 60,
+        message:
+          `Hi ${name}, I wanted to check if you are still looking for a property. If you share your preferred location, budget and BHK, I can help shortlist properties.`,
+      },
+      {
+        seconds: 24 * 60 * 60,
+        message:
+          `Hi ${name}, just one final follow-up regarding your property enquiry. If you are still searching, reply here and I will help you with available properties.`,
+      },
+    ];
+
+    const results = [];
+
+    for (const item of sequence) {
+      const result = await this.create({
+        organizationId: params.organizationId,
+        leadId: params.leadId,
+        customerId: params.customerId,
+        channel: 'whatsapp',
+        action: 'message',
+        message: item.message,
+        scheduledAt: new Date(
+          base + item.seconds * 1000,
+        ).toISOString(),
+      });
+
+      results.push(result);
+    }
+
+    return results;
+  }
+
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(input: CreateFollowUpInput) {

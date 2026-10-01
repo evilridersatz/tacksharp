@@ -6,6 +6,9 @@
   "exports": {
     "./agents/real-estate-agent.js": "./dist/agents/real-estate-agent.js"
   },
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
     "@openai/agents": "0.18.0",
     "dotenv": "^17.2.2",

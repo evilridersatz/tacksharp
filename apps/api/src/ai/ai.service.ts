@@ -25,24 +25,41 @@ export class AiService {
     phone?: string;
   }) {
     const {
-      organizationId,
+      organizationId: inputOrganizationId,
       channel,
       externalId,
       message,
       phone,
     } = params;
 
+    // Tacksharp demo organization.
+    // Use the database organization for the current demo.
+    const effectiveOrganizationId =
+      'org_real_estate_001';
+
     /*
      * STEP 1
      *
      * Get or create the conversation.
      */
+    const aiTurnStartedAt = Date.now();
+
+    console.log("\n========== AI TURN START ==========");
+
+    const conversationStartedAt = Date.now();
+
     const conversation =
       await this.conversationsService.getOrCreateConversation({
-        organizationId,
+        organizationId: effectiveOrganizationId,
         channel,
         externalId,
       });
+
+    console.log(
+      `AI TIMING conversation: ${Date.now() - conversationStartedAt}ms`,
+    );
+
+    const messagesStartedAt = Date.now();
 
     /*
      * STEP 2
@@ -51,9 +68,15 @@ export class AiService {
      */
     const previousMessages =
       await this.conversationsService.getMessages(
-        organizationId,
+        effectiveOrganizationId,
         conversation.id,
       );
+
+    console.log(
+      `AI TIMING messages: ${Date.now() - messagesStartedAt}ms`,
+    );
+
+    const leadStartedAt = Date.now();
 
     const recentMessages =
       previousMessages.slice(-20);
@@ -87,7 +110,7 @@ export class AiService {
     if (phone) {
       existingCustomer =
         await this.conversationsService.getCustomerByPhone(
-          organizationId,
+          effectiveOrganizationId,
           phone,
         );
 
@@ -125,7 +148,7 @@ Property type: ${
      */
     if (phone) {
       await this.leadsService.createLead({
-        organizationId,
+        organizationId: effectiveOrganizationId,
         phone,
         source: channel,
         name: existingCustomer?.name ?? undefined,
@@ -142,6 +165,14 @@ Property type: ${
         propertyType:
           existingCustomer?.propertyType ?? undefined,
       });
+
+      console.log(
+        `AI TIMING lead: ${Date.now() - leadStartedAt}ms`,
+      );
+    }
+
+    if (!phone) {
+      console.log('AI TIMING lead: skipped (no phone)');
     }
 
     /*
@@ -176,7 +207,7 @@ Property type: ${
      * Build AI agent context.
      */
     const context: TacksharpAgentContext = {
-      organizationId,
+      organizationId: effectiveOrganizationId,
       phone,
 
       updateCustomerMemory:
@@ -192,7 +223,7 @@ Property type: ${
           const result =
             await this.conversationsService
               .updateCustomerMemory({
-                organizationId,
+                organizationId: effectiveOrganizationId,
                 phone,
                 update,
               });
@@ -204,13 +235,13 @@ Property type: ${
           const updatedCustomer =
             await this.conversationsService
               .getCustomerByPhone(
-                organizationId,
+                effectiveOrganizationId,
                 phone,
               );
 
           if (updatedCustomer) {
             await this.leadsService.createLead({
-              organizationId,
+              organizationId: effectiveOrganizationId,
               phone,
               source: channel,
               name:
@@ -253,7 +284,7 @@ Property type: ${
           const customer =
             await this.conversationsService
               .getCustomerByPhone(
-                organizationId,
+                effectiveOrganizationId,
                 phone,
               );
 
@@ -270,7 +301,7 @@ Property type: ${
            * latest customer requirements into the lead.
            */
           await this.leadsService.createLead({
-            organizationId,
+            organizationId: effectiveOrganizationId,
             phone,
             source: channel,
             name:
@@ -295,7 +326,7 @@ Property type: ${
           const result =
             await this.leadsService
               .updateLeadStatusByCustomer({
-                organizationId,
+                organizationId: effectiveOrganizationId,
                 customerId:
                   customer.id,
                 status,
@@ -322,6 +353,8 @@ Property type: ${
      *
      * Run the AI agent.
      */
+    const agentStartedAt = Date.now();
+
     const result =
       await run(
         realEstateAgent,
@@ -331,6 +364,10 @@ Property type: ${
         },
       );
 
+    console.log(
+      `AI TIMING agent: ${Date.now() - agentStartedAt}ms`,
+    );
+
     const assistantResponse =
       result.finalOutput ?? '';
 
@@ -339,8 +376,10 @@ Property type: ${
      *
      * Persist conversation messages.
      */
+    const saveStartedAt = Date.now();
+
     await this.conversationsService.addMessage({
-      organizationId,
+      organizationId: effectiveOrganizationId,
       conversationId:
         conversation.id,
       role: 'user',
@@ -348,13 +387,22 @@ Property type: ${
     });
 
     await this.conversationsService.addMessage({
-      organizationId,
+      organizationId: effectiveOrganizationId,
       conversationId:
         conversation.id,
       role: 'assistant',
       content:
         assistantResponse,
     });
+
+    console.log(
+      `AI TIMING save messages: ${Date.now() - saveStartedAt}ms`,
+    );
+
+    console.log(
+      `AI TURN TOTAL: ${Date.now() - aiTurnStartedAt}ms`,
+    );
+    console.log("========== AI TURN END ==========");
 
     return {
       conversationId:

@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { whatsappQueue } from '../queues/whatsapp.queue.js';
+import { followUpQueue } from '../queues/follow-up.queue.js';
 
 type WhatsAppWebhookBody = {
   object?: string;
@@ -35,6 +37,10 @@ type WhatsAppWebhookBody = {
 
 @Injectable()
 export class WhatsAppService {
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
+
   async processWebhook(body: unknown) {
     const payload = body as WhatsAppWebhookBody;
 
@@ -73,6 +79,68 @@ export class WhatsAppService {
           const contact = value.contacts?.find(
             (item) => item.wa_id === message.from,
           );
+
+          // Customer has replied: cancel all pending follow-ups.
+          const customer = await this.prisma.customer.findFirst({
+            where: {
+              organizationId:
+                process.env.WHATSAPP_DEFAULT_ORGANIZATION_ID ??
+                'org_real_estate_001',
+              phone: message.from,
+            },
+          });
+
+          if (customer) {
+            const pendingFollowUps =
+              await this.prisma.followUp.findMany({
+                where: {
+                  organizationId:
+                    process.env.WHATSAPP_DEFAULT_ORGANIZATION_ID ??
+                    'org_real_estate_001',
+                  customerId: customer.id,
+                  status: 'scheduled',
+                },
+              });
+
+            for (const followUp of pendingFollowUps) {
+              await this.prisma.followUp.update({
+                where: {
+                  id: followUp.id,
+                },
+                data: {
+                  status: 'cancelled',
+                  cancellationReason:
+                    'Customer replied on WhatsApp',
+                },
+              });
+
+              const pendingJob =
+                await followUpQueue.getJob(
+                  `follow-up-${followUp.id}`,
+                );
+
+              if (pendingJob) {
+                try {
+                  await pendingJob.remove();
+                } catch (error) {
+                  console.warn(
+                    'Could not remove follow-up job:',
+                    followUp.id,
+                    error,
+                  );
+                }
+              }
+            }
+
+            if (pendingFollowUps.length > 0) {
+              console.log(
+                'FOLLOW-UPS CANCELLED AFTER CUSTOMER REPLY:',
+                pendingFollowUps.map(
+                  (item) => item.id,
+                ),
+              );
+            }
+          }
 
           const job = await whatsappQueue.add(
             'incoming-message',
