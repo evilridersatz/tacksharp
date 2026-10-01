@@ -1,0 +1,19 @@
+{
+  "name": "ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./agents/real-estate-agent.js": "./dist/agents/real-estate-agent.js"
+  },
+  "dependencies": {
+    "@openai/agents": "0.18.0",
+    "dotenv": "^17.2.2",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "tacksharp",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

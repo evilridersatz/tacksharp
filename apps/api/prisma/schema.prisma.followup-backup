@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Organization {
+  id         String     @id @default(cuid())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  properties Property[]
+  customers  Customer[]
+  leads      Lead[]
+  followUps  FollowUp[]
+}
+
+model Property {
+  id             String       @id @default(cuid())
+  organizationId String
+
+  name           String
+  location       String
+  type           String
+  bhk            Int
+  price          Decimal      @db.Decimal(15, 2)
+  status         String       @default("available")
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, location])
+  @@index([organizationId, bhk])
+  @@index([organizationId, status])
+}
+
+model Customer {
+  id             String         @id @default(cuid())
+  organizationId String
+
+  name           String?
+  phone          String?
+  email          String?
+  language       String?
+  source         String?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads          Lead[]
+  followUps      FollowUp[]
+
+  @@index([organizationId])
+  @@index([organizationId, phone])
+  @@index([organizationId, email])
+}
+
+model Lead {
+  id             String         @id @default(cuid())
+  organizationId String
+  customerId     String
+
+  status         String         @default("new")
+
+  budget         Decimal?       @db.Decimal(15, 2)
+  location       String?
+  bhk            Int?
+  propertyType   String?
+
+  source         String?
+  notes          String?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  followUps      FollowUp[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, customerId])
+}
+
+model FollowUp {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  leadId             String
+  customerId         String
+
+  channel            String   @default("whatsapp")
+  action             String   @default("message")
+  message            String?
+
+  scheduledAt        DateTime
+  status             String   @default("scheduled")
+
+  attempts           Int      @default(0)
+  cancellationReason String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead                Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  customer            Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, scheduledAt])
+  @@index([organizationId, status])
+  @@index([leadId])
+  @@index([customerId])
+}
